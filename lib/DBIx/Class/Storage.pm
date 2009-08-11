@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use base qw/DBIx::Class/;
+use mro 'c3';
 
 use Scalar::Util qw/weaken/;
 use Carp::Clan qw/^DBIx::Class/;
@@ -248,6 +249,9 @@ sub txn_begin { die "Virtual method!" }
 
 Issues a commit of the current transaction.
 
+It does I<not> perform an actual storage commit unless there's a DBIx::Class
+transaction currently in effect (i.e. you called L</txn_begin>).
+
 =cut
 
 sub txn_commit { die "Virtual method!" }
@@ -328,7 +332,7 @@ sub txn_scope_guard {
 =head2 sql_maker
 
 Returns a C<sql_maker> object - normally an object of class
-C<DBIC::SQL::Abstract>.
+C<DBIx::Class::SQLAHacks>.
 
 =cut
 

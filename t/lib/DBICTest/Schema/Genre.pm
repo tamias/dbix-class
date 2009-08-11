@@ -2,7 +2,7 @@ package DBICTest::Schema::Genre;
 
 use strict;
 
-use base 'DBIx::Class::Core';
+use base qw/DBICTest::BaseResult/;
 
 __PACKAGE__->table('genre');
 __PACKAGE__->add_columns(
@@ -14,15 +14,12 @@ __PACKAGE__->add_columns(
       data_type => 'varchar',
       size => 100,
     },
-    demographicid => {
-      data_type => 'integer',
-      is_nullable => 0,
-    },
 );
 __PACKAGE__->set_primary_key('genreid');
 __PACKAGE__->add_unique_constraint ( genre_name => [qw/name/] );
 
 __PACKAGE__->has_many (cds => 'DBICTest::Schema::CD', 'genreid');
-__PACKAGE__->belongs_to (demographic => 'DBICTest::Schema::Demographic', 'demographicid');
+
+__PACKAGE__->has_one (model_cd => 'DBICTest::Schema::CD', 'genreid');
 
 1;
