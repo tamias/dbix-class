@@ -9,7 +9,7 @@ use DBICTest;
 my $schema = DBICTest->init_schema();
 
 my $cd    = $schema->resultset('CD')->first;
-my $track = {
+my $track_hash = {
     cd        => $cd,
     title     => 'Multicreate rocks',
     cd_single => {
@@ -19,8 +19,7 @@ my $track = {
     },
 };
 
-my $cd    = $schema->resultset('CD')->first;
-my $track = $schema->resultset('Track')->new_result($track);
+my $track = $schema->resultset('Track')->new_result($track_hash);
 
 isa_ok( $track, 'DBICTest::Track', 'Main Track object created' );
 $track->insert;
@@ -29,9 +28,9 @@ ok( 1, 'created track' );
 is( $track->title, 'Multicreate rocks', 'Correct Track title' );
 is( $track->cd_single->title, 'Disemboweling MultiCreate' );
 
-delete $track->{cd};
-$track->{cd_single}->{title} = 'Disemboweling MultiUpdate';
-$track->update($track);
+$track_hash->{trackid} = $track->trackid;
+$track_hash->{cd_single}->{title} = 'Disemboweling MultiUpdate';
+$schema->resultset('Track')->update_or_create($track_hash);
 is( $track->cd_single->title, 'Disemboweling MultiUpdate', 'correct cd_single title' );
 
 done_testing;
