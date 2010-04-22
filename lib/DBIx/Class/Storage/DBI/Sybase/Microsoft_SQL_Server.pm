@@ -9,6 +9,7 @@ use base qw/
 /;
 use mro 'c3';
 use Carp::Clan qw/^DBIx::Class/;
+use DBIx::Class::Storage::DBI::StrptimeParserMaker ();
 
 sub _rebless {
   my $self = shift;
@@ -106,37 +107,19 @@ C<SMALLDATETIME> columns only have minute precision.
   }
 }
 
-sub datetime_parser_type {
-  'DBIx::Class::Storage::DBI::Sybase::Microsoft_SQL_Server::DateTime::Format'
-} 
+my $dt_parser_class =
+  'DBIx::Class::Storage::DBI::Sybase::Microsoft_SQL_Server::DateTime::Format';
 
-package # hide from PAUSE
-  DBIx::Class::Storage::DBI::Sybase::Microsoft_SQL_Server::DateTime::Format;
+DBIx::Class::Storage::DBI::StrptimeParserMaker->make_parser(
+  $dt_parser_class, {
+    datetime => {
+      parse  => '%Y-%m-%dT%H:%M:%S.%3NZ',
+      format => '%Y-%m-%d %H:%M:%S.%3N',
+    },
+  },
+);
 
-my $datetime_parse_format  = '%Y-%m-%dT%H:%M:%S.%3NZ';
-my $datetime_format_format = '%Y-%m-%d %H:%M:%S.%3N'; # %F %T 
-
-my ($datetime_parser, $datetime_formatter);
-
-sub parse_datetime {
-  shift;
-  require DateTime::Format::Strptime;
-  $datetime_parser ||= DateTime::Format::Strptime->new(
-    pattern  => $datetime_parse_format,
-    on_error => 'croak',
-  );
-  return $datetime_parser->parse_datetime(shift);
-}
-
-sub format_datetime {
-  shift;
-  require DateTime::Format::Strptime;
-  $datetime_formatter ||= DateTime::Format::Strptime->new(
-    pattern  => $datetime_format_format,
-    on_error => 'croak',
-  );
-  return $datetime_formatter->format_datetime(shift);
-}
+sub datetime_parser_type { $dt_parser_class }
 
 1;
 

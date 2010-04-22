@@ -7,6 +7,7 @@ use base qw/DBIx::Class::Storage::DBI::UniqueIdentifier/;
 use mro 'c3';
 
 use List::Util();
+use DBIx::Class::Storage::DBI::StrptimeParserMaker();
 
 __PACKAGE__->mk_group_accessors(simple => qw/
   _identity _identity_method
@@ -190,10 +191,6 @@ sub _svp_rollback {
   $self->_get_dbh->do("ROLLBACK TRANSACTION $name");
 }
 
-sub datetime_parser_type {
-  'DBIx::Class::Storage::DBI::MSSQL::DateTime::Format'
-} 
-
 sub sqlt_type { 'SQLServer' }
 
 sub sql_maker {
@@ -231,53 +228,16 @@ sub _ping {
   return $@ ? 0 : 1;
 }
 
-package # hide from PAUSE
-  DBIx::Class::Storage::DBI::MSSQL::DateTime::Format;
+my $dt_parser_class = 'DBIx::Class::Storage::DBI::MSSQL::DateTime::Format';
 
-my $datetime_format      = '%Y-%m-%d %H:%M:%S.%3N'; # %F %T 
-my $smalldatetime_format = '%Y-%m-%d %H:%M:%S';
+DBIx::Class::Storage::DBI::StrptimeParserMaker->make_parser(
+  $dt_parser_class, {
+    datetime      => '%Y-%m-%d %H:%M:%S.%3N', # %F %T 
+    smalldatetime => '%Y-%m-%d %H:%M:%S',
+  },
+);
 
-my ($datetime_parser, $smalldatetime_parser);
-
-sub parse_datetime {
-  shift;
-  require DateTime::Format::Strptime;
-  $datetime_parser ||= DateTime::Format::Strptime->new(
-    pattern  => $datetime_format,
-    on_error => 'croak',
-  );
-  return $datetime_parser->parse_datetime(shift);
-}
-
-sub format_datetime {
-  shift;
-  require DateTime::Format::Strptime;
-  $datetime_parser ||= DateTime::Format::Strptime->new(
-    pattern  => $datetime_format,
-    on_error => 'croak',
-  );
-  return $datetime_parser->format_datetime(shift);
-}
-
-sub parse_smalldatetime {
-  shift;
-  require DateTime::Format::Strptime;
-  $smalldatetime_parser ||= DateTime::Format::Strptime->new(
-    pattern  => $smalldatetime_format,
-    on_error => 'croak',
-  );
-  return $smalldatetime_parser->parse_datetime(shift);
-}
-
-sub format_smalldatetime {
-  shift;
-  require DateTime::Format::Strptime;
-  $smalldatetime_parser ||= DateTime::Format::Strptime->new(
-    pattern  => $smalldatetime_format,
-    on_error => 'croak',
-  );
-  return $smalldatetime_parser->format_datetime(shift);
-}
+sub datetime_parser_type { $dt_parser_class }
 
 1;
 
