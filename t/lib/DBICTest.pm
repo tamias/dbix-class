@@ -1,4 +1,4 @@
-package # hide from PAUSE 
+package # hide from PAUSE
     DBICTest;
 
 use strict;
@@ -16,7 +16,7 @@ DBICTest - Library to be used by DBIx::Class test scripts.
   use lib qw(t/lib);
   use DBICTest;
   use Test::More;
-  
+
   my $schema = DBICTest->init_schema();
 
 =head1 DESCRIPTION
@@ -375,7 +375,7 @@ sub populate_schema {
         [ 1, "Tools" ],
         [ 2, "Body Parts" ],
     ]);
-    
+
     $schema->populate('TypedObject', [
         [ qw/objectid type value/ ],
         [ 1, "pointy", "Awl" ],

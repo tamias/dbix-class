@@ -1430,21 +1430,45 @@ sub first {
 sub _rs_update_delete {
   my ($self, $op, $values) = @_;
 
+  my $cond = $self->{cond};
   my $rsrc = $self->result_source;
+  my $storage = $rsrc->schema->storage;
 
-  # if a condition exists we need to strip all table qualifiers
-  # if this is not possible we'll force a subquery below
-  my $cond = $rsrc->schema->storage->_strip_cond_qualifiers ($self->{cond});
+  my $attrs = $self->_resolved_attrs_copy;
+  my $needs_group_by_subq = exists $attrs->{group_by};
 
-  my $needs_group_by_subq = $self->_has_resolved_attr (qw/collapse group_by -join/);
-  my $needs_subq = $needs_group_by_subq || (not defined $cond) || $self->_has_resolved_attr(qw/rows offset/);
+  # simplify the joinmap and maybe decide if a grouping (and thus subquery) is necessary
+  my $relation_classifications;
+  if (ref($attrs->{from}) eq 'ARRAY') {
+    $attrs->{from} = $storage->_prune_unused_joins ($attrs->{from}, $attrs->{select}, $cond, $attrs);
 
-  if ($needs_group_by_subq or $needs_subq) {
+    $relation_classifications = $storage->_resolve_aliastypes_from_select_args (
+      [ @{$attrs->{from}}[1 .. $#{$attrs->{from}}] ],
+      $attrs->{select},
+      $cond,
+      $attrs
+    ) unless $needs_group_by_subq;  # we already know we need a group, no point of resolving then
+  }
+  else {
+    $needs_group_by_subq ||= 1; # if {from} is unparseable assume the worst
+  }
+
+  $needs_group_by_subq ||= exists $relation_classifications->{multiplying};
+
+  # If we do not seem to need a subquery, and a condition exists we need
+  # to strip all table qualifiers (since there is no table aliasing on update/delete)
+  # if this fails ($cond becomes undef) - we still force a subquery below
+  if (
+    $needs_group_by_subq
+      ||
+    keys %$relation_classifications # if any joins at all - need to wrap a subq
+      ||
+    $self->_has_resolved_attr(qw/rows offset/)
+      ||
+    ( $cond && ! ($cond = $storage->_strip_cond_qualifiers ($self->{cond}) ) )
+  ) {
 
     # make a new $rs selecting only the PKs (that's all we really need)
-    my $attrs = $self->_resolved_attrs_copy;
-
-
     delete $attrs->{$_} for qw/collapse _collapse_order_by select _prefetch_select as/;
     $attrs->{columns} = [ map { "$attrs->{alias}.$_" } ($self->result_source->_pri_cols) ];
 
@@ -1479,7 +1503,7 @@ sub _rs_update_delete {
     }
 
     my $subrs = (ref $self)->new($rsrc, $attrs);
-    return $self->result_source->storage->_subq_update_delete($subrs, $op, $values);
+    return $subrs->_subq_update_delete($op, $values);
   }
   else {
     return $rsrc->storage->$op(
@@ -1487,6 +1511,78 @@ sub _rs_update_delete {
       $op eq 'update' ? $values : (),
       $cond,
     );
+  }
+}
+
+# Method expects a proper select list (PKs only)
+#
+sub _subq_update_delete {
+  my ($self, $op, $values) = @_;
+
+  my $rsrc = $self->result_source;
+
+  # quick check if we got a sane rs on our hands
+  my @pcols = $rsrc->_pri_cols;
+
+  my $sel = $self->_resolved_attrs->{select};
+
+  if (
+      join ("\x00", map { join '.', $self->{attrs}{alias}, $_ } @pcols)
+        ne
+      join ("\x00", @$sel )
+  ) {
+    $self->throw_exception (
+      'Resultset update/delete requiring a subquery can not be performed on resultsets selecting columns other than the primary keys in declaration order'
+    );
+  }
+
+  my $storage = $rsrc->schema->storage;
+
+  if (@pcols == 1) {
+    return $storage->$op (
+      $rsrc,
+      $op eq 'update' ? $values : (),
+      { $pcols[0] => { -in => $self->as_query } },
+    );
+  }
+  elsif ($storage->_use_multicolumn_in) {
+    # This is hideously ugly, but SQLA does not understand multicol IN expressions
+    my $sql_maker = $storage->sql_maker;
+    $self = $self->as_subselect_rs;
+    my ($sql, @bind) = @${$self->as_query};
+    $sql = sprintf ('(%s) IN %s', # the as_query already comes with a set of parenthesis
+      join (', ', map { $sql_maker->_quote ($_) } @pcols),
+      $sql,
+    );
+
+    return $storage->$op (
+      $rsrc,
+      $op eq 'update' ? $values : (),
+      \[$sql, @bind],
+    );
+  }
+  else {
+    # if all else fails - get all primary keys and operate over a ORed set
+    # wrap in a transaction for consistency
+    my $guard = $storage->txn_scope_guard;
+
+    my @op_condition;
+    for my $row ($self->cursor->all) {
+      push @op_condition, { map
+        { $pcols[$_] => $row->[$_] }
+        (0 .. $#pcols)
+      };
+    }
+
+    my $res = $storage->$op (
+      $rsrc,
+      $op eq 'update' ? $values : (),
+      \@op_condition,
+    );
+
+    $guard->commit;
+
+    return $res;
   }
 }
 

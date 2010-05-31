@@ -3,15 +3,14 @@ package DBIx::Class::Storage::DBI::Pg;
 use strict;
 use warnings;
 
-use base qw/
-    DBIx::Class::Storage::DBI::MultiColumnIn
-/;
-use mro 'c3';
+use base qw/DBIx::Class::Storage::DBI/;
 
 use DBD::Pg qw(:pg_types);
 use Scope::Guard ();
 use Context::Preserve 'preserve_context';
 use namespace::clean;
+
+__PACKAGE__->_use_multicolumn_in (1);
 
 # Ask for a DBD::Pg with array support
 warn __PACKAGE__.": DBD::Pg 2.9.2 or greater is strongly recommended\n"
@@ -23,6 +22,7 @@ sub _determine_supports_insert_returning {
     : 0
   ;
 }
+
 
 sub with_deferred_fk_checks {
   my ($self, $sub) = @_;

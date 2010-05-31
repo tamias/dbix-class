@@ -309,7 +309,6 @@ has 'write_handler' => (
     backup
     is_datatype_numeric
     _count_select
-    _subq_update_delete
     svp_rollback
     svp_begin
     svp_release
@@ -332,12 +331,10 @@ has 'write_handler' => (
     _sql_maker
     _query_start
     _sqlt_version_error
-    _per_row_update_delete
     _dbh_begin_work
     _dbh_execute_inserts_with_no_binds
     _select_args_to_query
     _svp_generate_name
-    _multipk_update_delete
     source_bind_attributes
     _normalize_connect_info
     _parse_connect_do
@@ -383,6 +380,9 @@ my @unimplemented = qw(
 
   _use_insert_returning
   _supports_insert_returning
+
+  _use_multicolumn_in
+  _supports_multicolumn_in
 
   _use_placeholders
   _supports_placeholders
