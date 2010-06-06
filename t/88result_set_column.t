@@ -145,11 +145,14 @@ lives_ok ( sub {
       "Get grouped column with $type works",
     );
 
+    my @cols = $sets->{$type}->get_column ('cnt')->all;
+
+use Data::Dumper::Concise;
     is_deeply (
-      [ $sets->{$type}->get_column ('cnt')->all ],
+      \@cols,
       [qw/1 1 1 2/],
       "Get aggregate over $type works",
-    );
+    ) || diag Dumper \@cols;
   }
 });
 

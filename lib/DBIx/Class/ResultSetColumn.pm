@@ -78,18 +78,22 @@ sub new {
   $new_parent_rs ||= $rs->search_rs;
   my $new_attrs = $new_parent_rs->{attrs} ||= {};
 
-  # prefetch causes additional columns to be fetched, but we can not just make a new
-  # rs via the _resolved_attrs trick - we need to retain the separation between
-  # +select/+as and select/as. At the same time we want to preserve any joins that the
-  # prefetch would otherwise generate.
+  # we are not going to calculate the prefetching select, but we still need the
+  # joins.
   $new_attrs->{join} = $rs->_merge_attr( $new_attrs->{join}, delete $new_attrs->{prefetch} );
 
-  # {collapse} would mean a has_many join was injected, which in turn means
-  # we need to group *IF WE CAN* (only if the column in question is unique)
-  if (!$orig_attrs->{group_by} && keys %{$orig_attrs->{collapse}}) {
+  # Determine if we need a subquery
+  my $need_subq;
 
-    # scan for a constraint that would contain our column only - that'd be proof
-    # enough it is unique
+  # all multijoins are expected to collapse
+  $need_subq ||= keys %{$orig_attrs->{collapse}};
+
+  # 
+=begin
+    # See if our column is unique - we can just group_by it and be done with
+    # things. Scan for a constraint that would contain our column only - 
+    # that'd be proof enough it is unique
+#    my $is_uniq
     my $constraints = { $rs->result_source->unique_constraints };
     for my $constraint_columns ( values %$constraints ) {
 
@@ -104,14 +108,11 @@ sub new {
         last;
       }
     }
-
-    if (!$new_attrs->{group_by}) {
-      carp (
-          "Attempting to retrieve non-unique column '$column' on a resultset containing "
-        . 'one-to-many joins will return duplicate results.'
-      );
-    }
   }
+=cut
+
+  # If the original query has a multijoin expected to collapse ({collapse} is
+  # set), we need to distinct => 1 and possibly wrap a subquery
 
   my $new = bless { _select => $select, _as => $column, _parent_resultset => $new_parent_rs }, $class;
   return $new;

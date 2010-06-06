@@ -3044,6 +3044,24 @@ sub _resolved_attrs {
     ;
   }
 
+=begin
+  if ($attrs->{group_by} && 
+      my $constraints = { $rs->result_source->unique_constraints };
+    for my $constraint_columns ( values %$constraints ) {
+
+      next unless @$constraint_columns == 1;
+
+      my $col = $constraint_columns->[0];
+      my $fqcol = join ('.', $new_attrs->{alias}, $col);
+
+      if ($col eq $select or $fqcol eq $select) {
+        $new_attrs->{group_by} = [ $select ];
+        delete $new_attrs->{distinct}; # it is ignored when group_by is present
+        last;
+      }
+    }
+=cut
+
   return $self->{_attrs} = $attrs;
 }
 
