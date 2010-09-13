@@ -113,9 +113,13 @@ Supported by B<PostgreSQL> and B<SQLite>
 
 =cut
 sub _LimitOffset {
-    my ( $self, $sql, $order, $rows, $offset ) = @_;
-    $sql .= $self->_order_by( $order ) . " LIMIT $rows";
-    $sql .= " OFFSET $offset" if +$offset;
+    my ( $self, $sql, $rs_attrs, $rows, $offset ) = @_;
+    $sql .= $self->_parse_rs_attrs( $rs_attrs ) . " LIMIT ?";
+    push @{$self->{limit_bind}}, [ rows => $rows ];
+    if ($offset) {
+      $sql .= " OFFSET ?";
+      push @{$self->{limit_bind}}, [ offset => $offset ];
+    }
     return $sql;
 }
 
@@ -127,10 +131,15 @@ Supported by B<MySQL> and any L<SQL::Statement> based DBD
 
 =cut
 sub _LimitXY {
-    my ( $self, $sql, $order, $rows, $offset ) = @_;
-    $sql .= $self->_order_by( $order ) . " LIMIT ";
-    $sql .= "$offset, " if +$offset;
-    $sql .= $rows;
+    my ( $self, $sql, $rs_attrs, $rows, $offset ) = @_;
+    $sql .= $self->_parse_rs_attrs( $rs_attrs ) . " LIMIT ";
+    if ($offset) {
+      $sql .= '?, ';
+      push @{$self->{limit_bind}}, [ offset => $offset ];
+    }
+    $sql .= '?';
+    push @{$self->{limit_bind}}, [ rows => $rows ];
+
     return $sql;
 }
 
@@ -192,15 +201,16 @@ sub _RowNumberOver {
   my $qalias = $self->_quote ($rs_attrs->{alias});
   my $idx_name = $self->_quote ('rno__row__index');
 
-  $sql = sprintf (<<EOS, $offset + 1, $offset + $rows, );
+  $sql = <<EOS;
 
 SELECT $out_sel FROM (
   SELECT $mid_sel, ROW_NUMBER() OVER( $rno_ord ) AS $idx_name FROM (
     SELECT $in_sel ${sql}${group_having}
   ) $qalias
-) $qalias WHERE $idx_name BETWEEN %u AND %u
+) $qalias WHERE $idx_name >= ? AND $idx_name <= ?
 
 EOS
+   push @{$self->{limit_bind}}, [ offset => $offset + 1], [ total => $offset + $rows ];
 
   return $sql;
 }
