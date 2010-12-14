@@ -3,6 +3,7 @@ Revision history for DBIx::Class
     * New Features / Changes
         - Add DBIx::Class::Storage::Debug::PrettyPrint to this dist so
           docs can be viewed on CPAN etc
+        - Add 'plain' ::PrettyPrint profile for stupid terminals
         - New method ResultSource columns_info method, returning multiple
           pairs of column name/info at once
         - $rs->search now throws when called in void context, as it makes
