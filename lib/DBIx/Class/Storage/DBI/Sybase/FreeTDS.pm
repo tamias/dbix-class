@@ -92,14 +92,15 @@ sub _dbh_begin_work {
     # will be replaced by a failure of begin_work itself (which will be
     # then retried on reconnect)
     if ($self->{_in_dbh_do}) {
-      $self->_dbh->{syb_no_child_con} = 1; # cleared on commit/rollback
-      $self->_dbh->do('BEGIN TRAN')
-        || $self->throw_exception("BEGIN TRAN failed: ".$self->_dbh->errstr);
+      my $dbh = $self->_dbh; 
+      $dbh->{syb_no_child_con} = 1;
+      $dbh->begin_work;
+      $dbh->do('BEGIN TRAN');
     } else {
       $self->dbh_do(sub {
-        $_[1]->{syb_no_child_con} = 1; # cleared on commit/rollback
-        $_[1]->do('BEGIN TRAN')
-          || $self->throw_exception("BEGIN TRAN failed: ".$self->_dbh->errstr);
+        $_[1]->{syb_no_child_con} = 1;
+        $_[1]->begin_work;
+        $_[1]->do('BEGIN TRAN');
       });
     }
   }
@@ -127,8 +128,27 @@ sub _dbh_commit {
   my $dbh  = $self->_dbh
     or $self->throw_exception('cannot COMMIT on a disconnected handle');
 
-  $dbh->do('COMMIT')
-    || $self->throw_exception("COMMIT failed: ".$self->_dbh->errstr);
+  try {
+    local $dbh->{syb_no_child_con} = 1;
+    local $dbh->{RaiseError}       = 1;
+    local $dbh->{PrintError}       = 0;
+    local $dbh->{HandleError}      = undef;
+
+    $dbh->commit;
+    $dbh->do('COMMIT');
+  }
+  catch {
+    $dbh->{syb_no_child_con} = 0 if $self->_dbh_autocommit;
+
+    if (/child connections/) {
+      $self->throw_exception('Cannot commit a transaction with active '
+                            .'statements, exhaust or ->reset your ResultSets '
+                            ."first: $_");
+    }
+    else {
+      $self->throw_exception($_);
+    }
+  }
 
   $dbh->{syb_no_child_con} = 0 if $self->_dbh_autocommit;
 }
@@ -143,17 +163,35 @@ sub _dbh_rollback {
   my $dbh  = $self->_dbh
     or $self->throw_exception('cannot ROLLBACK on a disconnected handle');
 
-  # disconnecting is the only reliable way to rollback unfortunately
-  {
-    my $warn_handler = $SIG{__WARN__} || sub { warn @_ };
+  # rollback MUST succeed. If there are active prepare_cached statements, we
+  # delete them. If there are other active statements, then the only thing to do
+  # is to disconnect, as a last resort.
 
-    local $SIG{__WARN__} = sub {
-      $warn_handler->(@_) unless $_[0] =~ /invalidates \d+ active statement/;
-    };
+  %{ $dbh->{CachedKids} } = ();
 
-    $dbh->disconnect;
+  try {
+    local $dbh->{syb_no_child_con} = 1;
+    local $dbh->{RaiseError}       = 1;
+    local $dbh->{PrintError}       = 0;
+    local $dbh->{HandleError}      = undef;
+
+    $dbh->rollback;
+    $dbh->do('ROLLBACK');
   }
-  $self->_populate_dbh;
+  catch {
+    {
+      my $warn_handler = $SIG{__WARN__} || sub { warn @_ };
+
+      local $SIG{__WARN__} = sub {
+        $warn_handler->(@_) unless $_[0] =~ /invalidates \d+ active statement/;
+      };
+
+      $dbh->disconnect;
+    }
+    $self->_populate_dbh;
+  }
+
+  $dbh->{syb_no_child_con} = 0 if $self->_dbh_autocommit;
 }
 
 1;

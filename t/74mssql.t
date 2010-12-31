@@ -185,6 +185,18 @@ SQL
   $rs->reset;
   $rs->delete;
 
+  # cannot commit a transaction with an active statement
+  throws_ok {
+    $schema->txn_do(sub {
+      $rs->create({ amount => 650 });
+      $rs->next;
+    });
+  } qr/active statements/,
+  'committing a transaction with active statement not allowed';
+
+  $rs->reset;
+  $rs->delete;
+
   # test rollback
   throws_ok {
     $schema->txn_do(sub {
@@ -194,6 +206,42 @@ SQL
   } qr/mtfnpy/, 'simple failed txn';
 
   is $rs->first, undef, 'rolled back';
+
+  $rs->reset;
+  $rs->delete;
+
+  # test rollback with active statement
+  throws_ok {
+    $schema->txn_do(sub {
+      $rs->create({ amount => 750 });
+
+      $rs->next;
+
+      die 'mtfnpy';
+    });
+  } qr/mtfnpy/, 'failed txn with active statement';
+
+  is $rs->first, undef,
+    'rolled back failed txn with active statement';
+
+  $rs->reset;
+  $rs->delete;
+
+  # test rollback with active prepare_cached statement
+  throws_ok {
+    $schema->txn_do(sub {
+      $rs->create({ amount => 775 });
+
+      my $artist_rs = $schema->resultset('Artist');
+
+      $artist_rs->next;
+
+      die 'mtfnpy';
+    });
+  } qr/mtfnpy/, 'failed txn with active prepare_cached statement';
+
+  is $rs->first, undef,
+    'rolled back failed txn with active prepare_cached statement';
 
   $rs->reset;
   $rs->delete;
@@ -330,15 +378,19 @@ lives_ok (sub {
 
   is $rs->count, 0;
 
-  $rs->create({ amount => 300 });
+  diag $_->amount for $rs->all;
+
+  $rs->create({ amount => 3000 });
   $schema2->txn_rollback;
 
   is $rs->count, 0, 'rolled back in AutoCommit=0';
 
-  $rs->create({ amount => 400 });
+  diag $_->amount for $rs->all;
+
+  $rs->create({ amount => 4000 });
   $schema2->txn_commit;
 
-  is $rs->first->amount, 400, 'committed in AutoCommit=0';
+  is $rs->first->amount, 4000, 'committed in AutoCommit=0';
 }
 
 done_testing;
