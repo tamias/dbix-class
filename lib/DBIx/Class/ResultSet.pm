@@ -1058,73 +1058,79 @@ sub _construct_objects {
 
 
 sub _collapse_result {
-    my ( $self, $as_proto, $row_ref, $keep_collapsing ) = @_;
-    my $collapse = $self->_resolved_attrs->{collapse};
-    my $parser = $self->result_source->_mk_row_parser($as_proto, $collapse);
-    my $result     = [];
-    my $register = {};
-    my $rel_register = {};
+  my ( $self, $as_proto, $row_ref, $keep_collapsing ) = @_;
+  my $collapse = $self->_resolved_attrs->{collapse};
+  my $parser   = $self->result_source->_mk_row_parser( $as_proto, $collapse );
+  my $result   = [];
+  my $register = {};
+  my $rel_register = {};
 
-    my @row = @$row_ref;
-    do {
-        my $row = $parser->(\@row);
-        # init register
-        $self->_check_register($register, $row) unless(keys %$register);
+  my @row = @$row_ref;
+  do {
+    my $row = $parser->( \@row );
 
-        $self->_merge_result( $result, $row, $rel_register )
-            if(!$collapse || ($collapse = $self->_check_register($register, $row)));
+    # init register
+    $self->_check_register( $register, $row ) unless ( keys %$register );
 
-      } while (
-        $collapse
-        && do { @row = $self->cursor->next; $self->{stashed_row} = \@row if @row; }
-        # run this as long as there is a next row and we are not yet done collapsing
-      );
-    return $result;
+    $self->_merge_result( $result, $row, $rel_register )
+      if ( !$collapse
+      || ( $collapse = $self->_check_register( $register, $row ) ) );
+
+    } while (
+    $collapse
+    && do { @row = $self->cursor->next; $self->{stashed_row} = \@row if @row; }
+
+  # run this as long as there is a next row and we are not yet done collapsing
+    );
+  return $result;
 }
+
 
 
 # Taubenschlag
 sub _check_register {
-    my ($self, $register, $obj) = @_;
-    return undef unless(ref $obj eq 'ARRAY' && ref $obj->[2] eq 'ARRAY');
-    my @ids = @{$obj->[2]};
-    while(defined(my $id = shift @ids)) {
-        return $register->{$id} if(exists $register->{$id} && !@ids);
-        $register->{$id} = @ids ? {} : $obj unless(exists $register->{$id});
-        $register = $register->{$id}    ;
-    }
-    return undef;
+  my ( $self, $register, $obj ) = @_;
+  return undef unless ( ref $obj eq 'ARRAY' && ref $obj->[2] eq 'ARRAY' );
+  my @ids = @{ $obj->[2] };
+  while ( defined( my $id = shift @ids ) ) {
+    return $register->{$id} if ( exists $register->{$id} && !@ids );
+    $register->{$id} = @ids ? {} : $obj unless ( exists $register->{$id} );
+    $register = $register->{$id};
+  }
+  return undef;
 }
+
 
 sub _merge_result {
-    my ($self, $result, $row, $register) = @_;
-    return @$result = @$row if(@$result == 0); # initialize with $row
+  my ( $self, $result, $row, $register ) = @_;
+  return @$result = @$row if ( @$result == 0 );  # initialize with $row
 
-    my (undef, $rels, $ids) = @$result;
-    my (undef, $new_rels, $new_ids) = @$row;
+  my ( undef, $rels,   $ids )   = @$result;
+  my ( undef, $new_rels, $new_ids ) = @$row;
 
-    use List::MoreUtils;
-    my @rels = List::MoreUtils::uniq(keys %$rels, keys %$new_rels);
-    foreach my $rel(@rels) {
-        $register = $register->{$rel} ||= {};
+  use List::MoreUtils;
+  my @rels = List::MoreUtils::uniq( keys %$rels, keys %$new_rels );
+  foreach my $rel (@rels) {
+    $register = $register->{$rel} ||= {};
 
-        my $new_data = $new_rels->{$rel};
-        my $data = $rels->{$rel};
-        @$data = [@$data] unless(ref $data->[0] eq 'ARRAY');
+    my $new_data = $new_rels->{$rel};
+    my $data   = $rels->{$rel};
+    @$data = [@$data] unless ( ref $data->[0] eq 'ARRAY' );
 
+    $self->_check_register( $register, $data->[0] )
+      unless ( keys %$register );
 
-        $self->_check_register($register, $data->[0]) unless(keys %$register);
-
-        if(my $found = $self->_check_register($register, $new_data)) {
-            $self->_merge_result($found, $new_data, $register);
-        } else {
-            push(@$data, $new_data);
-        }
-        #push(@$data, $new_data) unless(List::Util::first { $self->_merge_result($_, $new_data, $register) } @$data);
+    if ( my $found = $self->_check_register( $register, $new_data ) ) {
+      $self->_merge_result( $found, $new_data, $register );
     }
-
-    return 1;
+    else {
+      push( @$data, $new_data );
+    }
+  }
+  return 1;
 }
+
+
 
 
 =begin
