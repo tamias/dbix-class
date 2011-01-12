@@ -1059,8 +1059,9 @@ sub _construct_objects {
 
 sub _collapse_result {
     my ( $self, $as_proto, $row_ref, $keep_collapsing ) = @_;
-    my $parser = $self->result_source->_mk_row_parser($as_proto, 1);
     my $collapse = $self->_resolved_attrs->{collapse};
+    warn $collapse;
+    my $parser = $self->result_source->_mk_row_parser($as_proto, $collapse);
     my $result     = [];
     my $register = {};
     my $rel_register = {};
@@ -1069,7 +1070,7 @@ sub _collapse_result {
     do {
 
         my $row = $parser->(\@row);
-
+use Data::Dumper; $Data::Dumper::Indent = 1; $Data::Dumper::Maxdepth = 2; warn Dumper $row;
         # init register
         $self->_check_register($register, $row) unless(keys %$register);
 
@@ -1090,6 +1091,7 @@ sub _collapse_result {
 # Taubenschlag
 sub _check_register {
     my ($self, $register, $obj) = @_;
+    return undef unless(ref $obj eq 'ARRAY' && ref $obj->[2] eq 'ARRAY');
     my @ids = @{$obj->[2]};
     while(defined(my $id = shift @ids)) {
         return $register->{$id} if(exists $register->{$id} && !@ids);

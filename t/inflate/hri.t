@@ -30,7 +30,7 @@ my $schema = DBICTest->init_schema();
     my $cd2 = $rs->search({ cdid => 1 })->single;
     is_deeply ( $cd2, $datahashref1, 'first/search+single return the same thing');
 }
-
+die;
 sub check_cols_of {
     my ($dbic_obj, $datahashref) = @_;
 
