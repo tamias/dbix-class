@@ -1060,7 +1060,6 @@ sub _construct_objects {
 sub _collapse_result {
     my ( $self, $as_proto, $row_ref, $keep_collapsing ) = @_;
     my $collapse = $self->_resolved_attrs->{collapse};
-    warn $collapse;
     my $parser = $self->result_source->_mk_row_parser($as_proto, $collapse);
     my $result     = [];
     my $register = {};
@@ -1068,22 +1067,18 @@ sub _collapse_result {
 
     my @row = @$row_ref;
     do {
-
         my $row = $parser->(\@row);
-use Data::Dumper; $Data::Dumper::Indent = 1; $Data::Dumper::Maxdepth = 2; warn Dumper $row;
         # init register
         $self->_check_register($register, $row) unless(keys %$register);
 
         $self->_merge_result( $result, $row, $rel_register )
-            if($collapse = $self->_check_register($register, $row));
+            if(!$collapse || ($collapse = $self->_check_register($register, $row)));
 
       } while (
         $collapse
         && do { @row = $self->cursor->next; $self->{stashed_row} = \@row if @row; }
         # run this as long as there is a next row and we are not yet done collapsing
       );
-    #use Data::Dumper; $Data::Dumper::Indent = 1; $Data::Dumper::Maxdepth = 8; warn Dumper $result;
-
     return $result;
 }
 
