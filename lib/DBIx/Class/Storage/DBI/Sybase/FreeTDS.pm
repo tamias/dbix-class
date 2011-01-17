@@ -134,7 +134,7 @@ sub _dbh_commit {
     local $dbh->{PrintError}       = 0;
     local $dbh->{HandleError}      = undef;
 
-    $dbh->commit;
+#    $dbh->commit;
     $dbh->do('COMMIT');
   }
   catch {
@@ -174,6 +174,7 @@ sub _dbh_rollback {
     local $dbh->{RaiseError}       = 1;
     local $dbh->{PrintError}       = 0;
     local $dbh->{HandleError}      = undef;
+    local $dbh->{AutoCommit}       = 0;
 
     $dbh->rollback;
     $dbh->do('ROLLBACK');
