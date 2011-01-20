@@ -236,10 +236,16 @@ sub _SkipFirst {
 
   return sprintf ('SELECT %s%s%s%s',
     $offset
-      ? sprintf ('SKIP %u ', $offset)
+      ? do {
+         push @{$self->{limit_bind}}, [ offset => $offset];
+         'SKIP ? '
+      }
       : ''
     ,
-    sprintf ('FIRST %u ', $rows),
+    do {
+       push @{$self->{limit_bind}}, [ rows => $rows ];
+       'FIRST ? '
+    },
     $sql,
     $self->_parse_rs_attrs ($rs_attrs),
   );
@@ -260,9 +266,15 @@ sub _FirstSkip {
     or croak "Unrecognizable SELECT: $sql";
 
   return sprintf ('SELECT %s%s%s%s',
-    sprintf ('FIRST %u ', $rows),
+    do {
+       push @{$self->{limit_bind}}, [ rows => $rows ];
+       'FIRST ? '
+    },
     $offset
-      ? sprintf ('SKIP %u ', $offset)
+      ? do {
+         push @{$self->{limit_bind}}, [ offset => $offset];
+         'SKIP ? '
+      }
       : ''
     ,
     $sql,
