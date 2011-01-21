@@ -162,10 +162,10 @@ If you're using FreeTDS, C<tds_version> must be set to at least C<8.0>.
 
 This will not work with CODE ref connect_info's.
 
-B<WARNING:> this will break C<SCOPE_IDENTITY()>, and C<SELECT @@IDENTITY> will
-be used instead, which on SQL Server 2005 and later will return erroneous
-results on tables which have an on insert trigger that inserts into another
-table with an C<IDENTITY> column.
+B<WARNING:> on FreeTDS (and maybe some other drivers) this will break
+C<SCOPE_IDENTITY()>, and C<SELECT @@IDENTITY> will be used instead, which on SQL
+Server 2005 and later will return erroneous results on tables which have an on
+insert trigger that inserts into another table with an C<IDENTITY> column.
 
 =cut
 
