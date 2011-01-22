@@ -5,6 +5,13 @@ use Test::More;
 use lib qw(t/lib);
 use DBICTest;
 use DBIC::SqlMakerTest;
+use DBIx::Class::SQLMaker::LimitDialects;
+my ($ROWS, $TOTAL, $OFFSET) = (
+   $DBIx::Class::SQLMaker::LimitDialects::ROWS,
+   $DBIx::Class::SQLMaker::LimitDialects::TOTAL,
+   $DBIx::Class::SQLMaker::LimitDialects::OFFSET,
+);
+
 
 my $schema = DBICTest->init_schema;
 
@@ -34,10 +41,10 @@ is_same_sql_bind(
         SELECT COUNT(*)
           FROM books rownum__emulation
         WHERE rownum__emulation.title < me.title
-      ) < 2
+      ) < ?
     ORDER BY me.title
   )',
-  [  [ 'source', 'Library' ] ],
+  [  [ 'source', 'Library' ], [ $ROWS => 2 ] ],
 );
 
 is_deeply (
@@ -75,10 +82,10 @@ is_same_sql_bind(
         SELECT COUNT(*)
           FROM "books" "rownum__emulation"
         WHERE "rownum__emulation"."title" > "me"."title"
-      ) BETWEEN 1 AND 3
+      ) BETWEEN ? AND ?
     ORDER BY "title" DESC
   )',
-  [ [ 'source', 'Library' ] ],
+  [ [ 'source', 'Library' ], [ $OFFSET => 1 ], [ $TOTAL => 3 ] ],
 );
 
 is_deeply (
@@ -110,10 +117,10 @@ is_same_sql_bind(
         SELECT COUNT(*)
           FROM "books" "rownum__emulation"
         WHERE "rownum__emulation"."title" < "me"."title"
-      ) BETWEEN 1 AND 4294967295
+      ) BETWEEN ? AND ?
     ORDER BY "title"
   )',
-  [ [ 'source', 'Library' ] ],
+  [ [ 'source', 'Library' ], [ $OFFSET => 1 ], [ $TOTAL => 4294967295 ] ],
 );
 
 is_deeply (

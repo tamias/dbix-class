@@ -310,23 +310,21 @@ sub _RowNum {
 
   if ($offset) {
 
-    $sql = sprintf (<<EOS, $offset + $rows, $offset + 1 );
-
+    push @{$self->{limit_bind}}, [ $TOTAL => $offset + $rows ], [ $OFFSET => $offset + 1 ];
+    $sql =<<"EOS";
 SELECT $outsel FROM (
   SELECT $outsel, ROWNUM $idx_name FROM (
     SELECT $insel ${sql}${order_group_having}
-  ) $qalias WHERE ROWNUM <= %u
-) $qalias WHERE $idx_name >= %u
-
+  ) $qalias WHERE ROWNUM <= ?
+) $qalias WHERE $idx_name >= ?
 EOS
   }
   else {
-    $sql = sprintf (<<EOS, $rows );
-
+    push @{$self->{limit_bind}}, [ $ROWS => $rows ];
+    $sql =<<"EOS";
   SELECT $outsel FROM (
     SELECT $insel ${sql}${order_group_having}
-  ) $qalias WHERE ROWNUM <= %u
-
+  ) $qalias WHERE ROWNUM <= ?
 EOS
   }
 
@@ -431,29 +429,33 @@ sub _Top {
 
   my $quoted_rs_alias = $self->_quote ($rs_attrs->{alias});
 
-  $sql = sprintf ('SELECT TOP %u %s %s %s %s',
-    $rows + ($offset||0),
+  unshift @{$self->{limit_bind}}, [ $TOTAL => $rows + ($offset||0) ];
+  $sql = sprintf ('SELECT TOP ? %s %s %s %s',
     $in_sel,
     $sql,
     $grpby_having,
     $order_by_inner,
   );
 
-  $sql = sprintf ('SELECT TOP %u %s FROM ( %s ) %s %s',
-    $rows,
-    $mid_sel,
-    $sql,
-    $quoted_rs_alias,
-    $order_by_reversed,
-  ) if $offset;
+ if ($offset) {
+     unshift @{$self->{limit_bind}}, [ $OFFSET => $rows ];
+     $sql = sprintf ('SELECT TOP ? %s FROM ( %s ) %s %s',
+       $mid_sel,
+       $sql,
+       $quoted_rs_alias,
+       $order_by_reversed,
+     )
+  }
 
-  $sql = sprintf ('SELECT TOP %u %s FROM ( %s ) %s %s',
-    $rows,
-    $out_sel,
-    $sql,
-    $quoted_rs_alias,
-    $order_by_requested,
-  ) if ( ($offset && $order_by_requested) || ($mid_sel ne $out_sel) );
+  if ( ($offset && $order_by_requested) || ($mid_sel ne $out_sel) ) {
+     unshift @{$self->{limit_bind}}, [ $ROWS => $rows ];
+     $sql = sprintf ('SELECT TOP ? %s FROM ( %s ) %s %s',
+       $out_sel,
+       $sql,
+       $quoted_rs_alias,
+       $order_by_requested,
+     )
+  }
 
   return $sql;
 }
@@ -476,9 +478,11 @@ sub _RowCountOrGenericSubQ {
 
   return $self->_GenericSubQ(@_) if $offset;
 
-  return sprintf <<"EOF", $rows, $sql;
-SET ROWCOUNT %d
-%s
+
+  push @{$self->{limit_bind}}, [ $ROWS => $rows ];
+  return <<"EOF";
+SET ROWCOUNT ?
+$sql
 SET ROWCOUNT 0
 EOF
 }
@@ -595,8 +599,15 @@ EOS
       $order_by,
     )),
     $offset
-      ? sprintf ('BETWEEN %u AND %u', $offset, $offset + $rows - 1)
-      : sprintf ('< %u', $rows )
+      ? do {
+         push @{$self->{limit_bind}},
+            [ $OFFSET => $offset ], [ $TOTAL => $offset + $rows - 1];
+         'BETWEEN ? AND ?';
+        }
+      : do {
+         push @{$self->{limit_bind}}, [ $ROWS => $rows ];
+         '< ?';
+         }
     ,
   );
 
