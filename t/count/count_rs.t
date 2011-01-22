@@ -7,6 +7,12 @@ use Test::More;
 use DBICTest;
 use DBIC::SqlMakerTest;
 use DBIC::DebugObj;
+use DBIx::Class::SQLMaker::LimitDialects;
+
+my ($ROWS, $OFFSET) = (
+   $DBIx::Class::SQLMaker::LimitDialects::ROWS,
+   $DBIx::Class::SQLMaker::LimitDialects::OFFSET,
+);
 
 my $schema = DBICTest->init_schema();
 
@@ -51,10 +57,10 @@ my $schema = DBICTest->init_schema();
           JOIN track tracks ON tracks.cd = me.cdid
           JOIN cd disc ON disc.cdid = tracks.cd
         WHERE ( ( position = ? OR position = ? ) )
-        LIMIT 3 OFFSET 8
+        LIMIT ? OFFSET ?
        ) tracks
     )',
-    [ [ position => 1 ], [ position => 2 ] ],
+    [ [ position => 1 ], [ position => 2 ], [$ROWS => 3], [$OFFSET => 8] ],
     'count_rs db-side limit applied',
   );
 }
@@ -106,15 +112,15 @@ my $schema = DBICTest->init_schema();
           JOIN artist artist ON artist.artistid = cds.artist
         WHERE tracks.position = ? OR tracks.position = ?
         GROUP BY cds.cdid
-        LIMIT 3 OFFSET 4
+        LIMIT ? OFFSET ?
       ) cds
     )',
-    [ [ 'tracks.position' => 1 ], [ 'tracks.position' => 2 ] ],
+    [ [ 'tracks.position' => 1 ], [ 'tracks.position' => 2 ], [ $ROWS => 3], [$OFFSET => 4] ],
     'count_rs db-side limit applied',
   );
 }
 
-# count with a having clause 
+# count with a having clause
 {
   my $rs = $schema->resultset("Artist")->search(
     {},
@@ -134,9 +140,9 @@ my $schema = DBICTest->init_schema();
     '(SELECT COUNT( * )
       FROM (
         SELECT me.artistid, MAX( cds.year ) AS newest_cd_year,
-          FROM artist me 
-          LEFT JOIN cd cds ON cds.artist = me.artistid 
-        GROUP BY me.artistid 
+          FROM artist me
+          LEFT JOIN cd cds ON cds.artist = me.artistid
+        GROUP BY me.artistid
         HAVING newest_cd_year = ?
       ) me
     )',

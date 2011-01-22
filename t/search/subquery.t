@@ -6,6 +6,9 @@ use Test::More;
 use lib qw(t/lib);
 use DBICTest;
 use DBIC::SqlMakerTest;
+use DBIx::Class::SQLMaker::LimitDialects;
+
+my $ROWS = $DBIx::Class::SQLMaker::LimitDialects::ROWS;
 
 my $schema = DBICTest->init_schema();
 my $art_rs = $schema->resultset('Artist');
@@ -17,9 +20,10 @@ my @tests = (
     search => \[ "title = ? AND year LIKE ?", [ title => 'buahaha' ], [ year => '20%' ] ],
     attrs => { rows => 5 },
     sqlbind => \[
-      "( SELECT me.cdid, me.artist, me.title, me.year, me.genreid, me.single_track FROM cd me WHERE (title = ? AND year LIKE ?) LIMIT 5)",
+      "( SELECT me.cdid, me.artist, me.title, me.year, me.genreid, me.single_track FROM cd me WHERE (title = ? AND year LIKE ?) LIMIT ?)",
       [ title => 'buahaha' ],
       [ year => '20%' ],
+      [ $ROWS => 5 ],
     ],
   },
 
@@ -29,7 +33,8 @@ my @tests = (
       artist_id => { 'in' => $art_rs->search({}, { rows => 1 })->get_column( 'id' )->as_query },
     },
     sqlbind => \[
-      "( SELECT me.cdid, me.artist, me.title, me.year, me.genreid, me.single_track FROM cd me WHERE artist_id IN ( SELECT me.id FROM artist me LIMIT 1 ) )",
+      "( SELECT me.cdid, me.artist, me.title, me.year, me.genreid, me.single_track FROM cd me WHERE artist_id IN ( SELECT me.id FROM artist me LIMIT ? ) )",
+      [ $ROWS => 1 ],
     ],
   },
 
@@ -41,7 +46,8 @@ my @tests = (
       ],
     },
     sqlbind => \[
-      "( SELECT (SELECT me.id FROM cd me LIMIT 1) FROM artist me )",
+      "( SELECT (SELECT me.id FROM cd me LIMIT ?) FROM artist me )",
+      [ $ROWS => 1 ],
     ],
   },
 
@@ -53,7 +59,8 @@ my @tests = (
       ],
     },
     sqlbind => \[
-      "( SELECT me.artistid, me.name, me.rank, me.charfield, (SELECT me.id FROM cd me LIMIT 1) FROM artist me )",
+      "( SELECT me.artistid, me.name, me.rank, me.charfield, (SELECT me.id FROM cd me LIMIT ?) FROM artist me )",
+      [ $ROWS => 1 ],
     ],
   },
 
@@ -81,7 +88,7 @@ my @tests = (
         { 'me' => 'artist' },
         [
           { 'cds' => $cdrs->search({}, { 'select' => [\'me.artist as cds_artist' ]})->as_query },
-          { 'me.artistid' => 'cds_artist' } 
+          { 'me.artistid' => 'cds_artist' }
         ]
       ]
     },
@@ -96,10 +103,10 @@ my @tests = (
       alias => 'cd2',
       from => [
         { cd2 => $cdrs->search(
-            { id => { '>' => 20 } }, 
-            { 
+            { id => { '>' => 20 } },
+            {
                 alias => 'cd3',
-                from => [ 
+                from => [
                 { cd3 => $cdrs->search( { id => { '<' => 40 } } )->as_query }
                 ],
             }, )->as_query },

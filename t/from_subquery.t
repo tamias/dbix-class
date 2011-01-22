@@ -6,6 +6,10 @@ use Test::More;
 use lib qw(t/lib);
 use DBICTest;
 use DBIC::SqlMakerTest;
+use DBIx::Class::SQLMaker::LimitDialects;
+
+my $ROWS = $DBIx::Class::SQLMaker::LimitDialects::ROWS;
+
 
 plan tests => 8;
 
@@ -20,8 +24,8 @@ my $cdrs = $schema->resultset('CD');
 
   is_same_sql_bind(
     $cdrs2->as_query,
-    "(SELECT me.cdid, me.artist, me.title, me.year, me.genreid, me.single_track FROM cd me WHERE artist_id IN ( SELECT me.id FROM artist me LIMIT 1 ))",
-    [],
+    "(SELECT me.cdid, me.artist, me.title, me.year, me.genreid, me.single_track FROM cd me WHERE artist_id IN ( SELECT me.id FROM artist me LIMIT ? ))",
+    [[$ROWS => 1]],
   );
 }
 
@@ -37,8 +41,8 @@ my $cdrs = $schema->resultset('CD');
 
   is_same_sql_bind(
     $rs->as_query,
-    "(SELECT (SELECT me.id FROM cd me LIMIT 1) FROM artist me)",
-    [],
+    "(SELECT (SELECT me.id FROM cd me LIMIT ?) FROM artist me)",
+    [[$ROWS => 1]],
   );
 }
 
@@ -54,8 +58,8 @@ my $cdrs = $schema->resultset('CD');
 
   is_same_sql_bind(
     $rs->as_query,
-    "(SELECT me.artistid, me.name, me.rank, me.charfield, (SELECT me.id FROM cd me LIMIT 1) FROM artist me)",
-    [],
+    "(SELECT me.artistid, me.name, me.rank, me.charfield, (SELECT me.id FROM cd me LIMIT ?) FROM artist me)",
+    [[$ROWS => 1]],
   );
 }
 
@@ -84,9 +88,9 @@ my $cdrs = $schema->resultset('CD');
 
 # nested from
 {
-  my $art_rs2 = $schema->resultset('Artist')->search({}, 
+  my $art_rs2 = $schema->resultset('Artist')->search({},
   {
-    from => [ { 'me' => 'artist' }, 
+    from => [ { 'me' => 'artist' },
       [ { 'cds' => $cdrs->search({},{ 'select' => [\'me.artist as cds_artist' ]})->as_query },
       { 'me.artistid' => 'cds_artist' } ] ]
   });
@@ -108,10 +112,10 @@ my $cdrs = $schema->resultset('CD');
       alias => 'cd2',
       from => [
         { cd2 => $cdrs->search(
-            { id => { '>' => 20 } }, 
-            { 
+            { id => { '>' => 20 } },
+            {
                 alias => 'cd3',
-                from => [ 
+                from => [
                 { cd3 => $cdrs->search( { id => { '<' => 40 } } )->as_query }
                 ],
             }, )->as_query },
@@ -129,7 +133,7 @@ my $cdrs = $schema->resultset('CD');
               FROM cd me WHERE ( id < ? ) ) cd3
           WHERE ( id > ? ) ) cd2)",
     [
-      [ 'id', 40 ], 
+      [ 'id', 40 ],
       [ 'id', 20 ]
     ],
   );

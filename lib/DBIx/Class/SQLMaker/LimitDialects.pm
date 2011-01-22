@@ -7,6 +7,8 @@ use Carp::Clan qw/^DBIx::Class|^SQL::Abstract|^Try::Tiny/;
 use List::Util 'first';
 use namespace::clean;
 
+our ($ROWS, $OFFSET, $TOTAL) = (qw(__rows __offset __total));
+
 # FIXME
 # This dialect has not been ported to the subquery-realiasing code
 # that all other subquerying dialects are using. It is very possible
@@ -115,10 +117,10 @@ Supported by B<PostgreSQL> and B<SQLite>
 sub _LimitOffset {
     my ( $self, $sql, $rs_attrs, $rows, $offset ) = @_;
     $sql .= $self->_parse_rs_attrs( $rs_attrs ) . " LIMIT ?";
-    push @{$self->{limit_bind}}, [ rows => $rows ];
+    push @{$self->{limit_bind}}, [ $ROWS => $rows ];
     if ($offset) {
       $sql .= " OFFSET ?";
-      push @{$self->{limit_bind}}, [ offset => $offset ];
+      push @{$self->{limit_bind}}, [ $OFFSET => $offset ];
     }
     return $sql;
 }
@@ -135,10 +137,10 @@ sub _LimitXY {
     $sql .= $self->_parse_rs_attrs( $rs_attrs ) . " LIMIT ";
     if ($offset) {
       $sql .= '?, ';
-      push @{$self->{limit_bind}}, [ offset => $offset ];
+      push @{$self->{limit_bind}}, [ $OFFSET => $offset ];
     }
     $sql .= '?';
-    push @{$self->{limit_bind}}, [ rows => $rows ];
+    push @{$self->{limit_bind}}, [ $ROWS => $rows ];
 
     return $sql;
 }
@@ -210,7 +212,7 @@ SELECT $out_sel FROM (
 ) $qalias WHERE $idx_name >= ? AND $idx_name <= ?
 
 EOS
-   push @{$self->{limit_bind}}, [ offset => $offset + 1], [ total => $offset + $rows ];
+   push @{$self->{limit_bind}}, [ $OFFSET => $offset + 1], [ $TOTAL => $offset + $rows ];
 
   return $sql;
 }
@@ -237,13 +239,13 @@ sub _SkipFirst {
   return sprintf ('SELECT %s%s%s%s',
     $offset
       ? do {
-         push @{$self->{limit_bind}}, [ offset => $offset];
+         push @{$self->{limit_bind}}, [ $OFFSET => $offset];
          'SKIP ? '
       }
       : ''
     ,
     do {
-       push @{$self->{limit_bind}}, [ rows => $rows ];
+       push @{$self->{limit_bind}}, [ $ROWS => $rows ];
        'FIRST ? '
     },
     $sql,
@@ -267,12 +269,12 @@ sub _FirstSkip {
 
   return sprintf ('SELECT %s%s%s%s',
     do {
-       push @{$self->{limit_bind}}, [ rows => $rows ];
+       push @{$self->{limit_bind}}, [ $ROWS => $rows ];
        'FIRST ? '
     },
     $offset
       ? do {
-         push @{$self->{limit_bind}}, [ offset => $offset];
+         push @{$self->{limit_bind}}, [ $OFFSET => $offset];
          'SKIP ? '
       }
       : ''

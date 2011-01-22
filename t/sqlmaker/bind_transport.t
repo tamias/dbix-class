@@ -5,6 +5,12 @@ use Test::More;
 use lib qw(t/lib);
 use DBICTest;
 use DBIC::SqlMakerTest;
+use DBIx::Class::SQLMaker::LimitDialects;
+
+my ($ROWS, $OFFSET) = (
+   $DBIx::Class::SQLMaker::LimitDialects::ROWS,
+   $DBIx::Class::SQLMaker::LimitDialects::OFFSET,
+);
 
 my $schema = DBICTest->init_schema();
 
@@ -37,7 +43,7 @@ for (1,2) {
       GROUP BY me.cdid, me.artist - ?
       HAVING me.artist < ?
       ORDER BY me.artist * ?
-      LIMIT 1 OFFSET 2
+      LIMIT ? OFFSET ?
     )',
     [
       [ 'me.artist' => 'foo' ],
@@ -48,6 +54,8 @@ for (1,2) {
       [ _sub => 2 ],
       [ _lt => 3 ],
       [ _mu => 4 ],
+      [ $ROWS => 1 ],
+      [ $OFFSET => 2 ],
     ],
     'Correct crazy sql',
   );

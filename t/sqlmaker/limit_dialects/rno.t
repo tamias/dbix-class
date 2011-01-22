@@ -5,6 +5,12 @@ use Test::More;
 use lib qw(t/lib);
 use DBICTest;
 use DBIC::SqlMakerTest;
+use DBIx::Class::SQLMaker::LimitDialects;
+
+my ($TOTAL, $OFFSET) = (
+   $DBIx::Class::SQLMaker::LimitDialects::TOTAL,
+   $DBIx::Class::SQLMaker::LimitDialects::OFFSET,
+);
 
 my $schema = DBICTest->init_schema;
 
@@ -34,9 +40,9 @@ is_same_sql_bind(
             WHERE ( source = ? )
           ) me
       ) me
-    WHERE rno__row__index BETWEEN 1 AND 1
+    WHERE rno__row__index >= ? AND rno__row__index <= ?
   )',
-  [  [ 'source', 'Library' ] ],
+  [  [ 'source', 'Library' ], [ $OFFSET => 1 ], [ $TOTAL => 1 ] ],
 );
 
 $schema->storage->_sql_maker->quote_char ([qw/ [ ] /]);
@@ -66,9 +72,9 @@ is_same_sql_bind(
             WHERE ( [source] = ? )
           ) [me]
       ) [me]
-    WHERE [rno__row__index] BETWEEN 1 AND 1
+    WHERE [rno__row__index] >= ? AND [rno__row__index] <= ?
   )',
-  [ [ 'source', 'Library' ] ],
+  [ [ 'source', 'Library' ], [ $OFFSET => 1 ], [ $TOTAL => 1 ] ],
 );
 
 {

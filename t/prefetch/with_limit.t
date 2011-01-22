@@ -8,6 +8,9 @@ use Test::Exception;
 use lib qw(t/lib);
 use DBICTest;
 use DBIC::SqlMakerTest;
+use DBIx::Class::SQLMaker::LimitDialects;
+
+my $ROWS = $DBIx::Class::SQLMaker::LimitDialects::ROWS;
 
 my $schema = DBICTest->init_schema();
 
@@ -63,7 +66,7 @@ is_same_sql_bind (
         WHERE   artwork.cd_id IS NULL
              OR tracks.title != ?
         GROUP BY me.artistid, me.name, me.artistid + ?
-        ORDER BY name DESC LIMIT 3
+        ORDER BY name DESC LIMIT ?
       ) me
       LEFT JOIN cd cds
         ON cds.artist = me.artistid
@@ -81,6 +84,7 @@ is_same_sql_bind (
     $bind_one,  # inner select
     [ 'tracks.title' => 'blah-blah-1234568' ], # inner where
     $bind_one,  # inner group_by
+    [ $ROWS => 3 ],
     [ 'tracks.title' => 'blah-blah-1234568' ], # outer where
     $bind_one,  # outer group_by
   ],
@@ -175,7 +179,7 @@ is_same_sql_bind (
           FROM cd me
           JOIN artist artist ON artist.artistid = me.artist
         WHERE ( ( artist.name = ? AND me.year = ? ) )
-        LIMIT 15
+        LIMIT ?
       ) me
       LEFT JOIN track tracks
         ON tracks.cd = me.cdid
@@ -187,6 +191,7 @@ is_same_sql_bind (
   [
     [ 'artist.name' => 'foo' ],
     [ 'me.year'     => 2010  ],
+    [ $ROWS         => 15    ],
     [ 'artist.name' => 'foo' ],
     [ 'me.year'     => 2010  ],
   ],
