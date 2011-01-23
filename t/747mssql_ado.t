@@ -6,6 +6,9 @@ use Test::Exception;
 use lib qw(t/lib);
 use DBICTest;
 
+# Example DSN (from frew):
+# dbi:ADO:PROVIDER=sqlncli10;SERVER=tcp:172.24.2.10;MARS Connection=True;Initial Catalog=CIS;UID=cis_web;PWD=...;DataTypeCompatibility=80;
+
 my ($dsn, $user, $pass) = @ENV{map { "DBICTEST_MSSQL_ADO_${_}" } qw/DSN USER PASS/};
 
 plan skip_all => 'Set $ENV{DBICTEST_MSSQL_ADO_DSN}, _USER and _PASS to run this test'
