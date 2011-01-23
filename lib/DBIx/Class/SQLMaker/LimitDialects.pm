@@ -429,7 +429,7 @@ sub _Top {
 
   my $quoted_rs_alias = $self->_quote ($rs_attrs->{alias});
 
-  unshift @{$self->{limit_bind}}, [ $TOTAL => $rows + ($offset||0) ];
+  unshift @{$self->{select_bind}}, [ $TOTAL => $rows + ($offset||0) ];
   $sql = sprintf ('SELECT TOP ? %s %s %s %s',
     $in_sel,
     $sql,
@@ -438,7 +438,7 @@ sub _Top {
   );
 
  if ($offset) {
-     unshift @{$self->{limit_bind}}, [ $OFFSET => $rows ];
+     unshift @{$self->{select_bind}}, [ $ROWS => $rows ];
      $sql = sprintf ('SELECT TOP ? %s FROM ( %s ) %s %s',
        $mid_sel,
        $sql,
@@ -448,7 +448,7 @@ sub _Top {
   }
 
   if ( ($offset && $order_by_requested) || ($mid_sel ne $out_sel) ) {
-     unshift @{$self->{limit_bind}}, [ $ROWS => $rows ];
+     unshift @{$self->{select_bind}}, [ $ROWS => $rows ];
      $sql = sprintf ('SELECT TOP ? %s FROM ( %s ) %s %s',
        $out_sel,
        $sql,

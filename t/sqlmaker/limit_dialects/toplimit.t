@@ -45,7 +45,7 @@ for my $null_order (
           ) me
         ORDER BY me.id DESC
        )',
-    [ [ $TOTAL => 2 ], [ $OFFSET => 5 ], [ source => 'Library' ] ],
+    [ [ $ROWS => 2 ], [ $TOTAL => 5 ], [ source => 'Library' ] ],
   );
 }
 
@@ -131,13 +131,13 @@ for my $ord_set (
 
   is_same_sql_bind(
     $books_45_and_owners->search ({}, {order_by => $ord_set->{order_by}})->as_query,
-    "(SELECT TOP 2
+    "(SELECT TOP ?
           id, source, owner, title, price, owner__id, owner__name
         FROM (
-          SELECT TOP 2
+          SELECT TOP ?
               id, source, owner, title, price, owner__id, owner__name$o_sel
             FROM (
-              SELECT TOP 5
+              SELECT TOP ?
                   me.id, me.source, me.owner, me.title, me.price, owner.id AS owner__id, owner.name AS owner__name$i_sel
                 FROM books me
                 JOIN owners owner ON owner.id = me.owner
@@ -148,7 +148,7 @@ for my $ord_set (
         ) me
       ORDER BY $ord_set->{order_req}
     )",
-    [ [ $TOTAL => 2 ], [ $ROWS => 2 ], [ $OFFSET => 5 ], [ source => 'Library' ] ],
+    [ [ $ROWS => 2 ], [ $ROWS => 2 ], [ $TOTAL => 5 ], [ source => 'Library' ] ],
   );
 }
 
@@ -178,7 +178,7 @@ is_same_sql_bind (
     WHERE ( source = ? )
     ORDER BY title
   )',
-  [ [ $TOTAL => 2 ], [ $ROWS => 2 ], [ $OFFSET => 5 ], [ source => 'Library' ], [ source => 'Library' ] ],
+  [ [ $ROWS => 2 ], [ $ROWS => 2 ], [ $TOTAL => 5 ], [ source => 'Library' ], [ source => 'Library' ] ],
 );
 
 # test deprecated column mixing over join boundaries
