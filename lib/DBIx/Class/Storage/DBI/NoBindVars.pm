@@ -6,6 +6,11 @@ use warnings;
 use base 'DBIx::Class::Storage::DBI';
 use mro 'c3';
 
+use DBIx::Class::SQLMaker::LimitDialects;
+use List::Util qw/first/;
+
+use namespace::clean;
+
 =head1 NAME 
 
 DBIx::Class::Storage::DBI::NoBindVars - Sometime DBDs have poor to no support for bind variables
@@ -54,16 +59,29 @@ sub _prep_for_execute {
   foreach my $bound (@$bind) {
     my $col = shift @$bound;
 
-    my $datatype = $col_info->{$col}{data_type};
+    my $datatype = $col_info->{$col}{data_type} || do {
+      (first { $col eq $_ } (
+        $DBIx::Class::SQLMaker::LimitDialects::ROWS,
+        $DBIx::Class::SQLMaker::LimitDialects::OFFSET,
+        $DBIx::Class::SQLMaker::LimitDialects::TOTAL,
+      )) ? 'INTEGER' : undef
+    };
 
-    foreach my $data (@$bound) {
-      $data = ''.$data if ref $data;
+    for (@$bound) {
+      my $data = $_;
+      if (defined $data) {
 
-      $data = $self->_prep_interpolated_value($datatype, $data)
-        if $datatype;
+        $data = ''.$data if ref $data;
 
-      $data = $self->_dbh->quote($data)
-        unless $self->interpolate_unquoted($datatype, $data);
+        $data = $self->_prep_interpolated_value($datatype, $data)
+          if $datatype;
+
+        $data = $self->_dbh->quote($data)
+          unless ($datatype && $self->interpolate_unquoted($datatype, $data) );
+      }
+      else {
+        $data = 'NULL';
+      }
 
       $new_sql .= shift(@sql_part) . $data;
     }
@@ -92,6 +110,13 @@ columns). The default method always returns false (do quote).
 
 sub interpolate_unquoted {
   #my ($self, $datatype, $value) = @_;
+
+  return 1 if (
+    $_[2] !~ /\D/
+      and
+    $_[1] =~ /int(?:eger)? | (?:tiny|small|medium|big)int/ix
+  );
+
   return 0;
 }
 
