@@ -8,6 +8,10 @@ use DBICTest;
 use DBIC::SqlMakerTest;
 use Try::Tiny;
 
+use DBIx::Class::SQLMaker::LimitDialects;
+my $OFFSET = $DBIx::Class::SQLMaker::LimitDialects::OFFSET;
+my $TOTAL = $DBIx::Class::SQLMaker::LimitDialects::TOTAL;
+
 my ($dsn, $user, $pass) = @ENV{map { "DBICTEST_MSSQL_ODBC_${_}" } qw/DSN USER PASS/};
 
 plan skip_all => 'Set $ENV{DBICTEST_MSSQL_ODBC_DSN}, _USER and _PASS to run this test'
@@ -378,8 +382,10 @@ SQL
         is_deeply (
           \@bind,
           [
-            $dialect eq 'Top' ? [ test => 'xxx' ] : (),                 # the extra re-order bind
-            ([ 'me.name' => 'somebogusstring' ], [ test => 'xxx' ]) x 2 # double because of the prefetch subq
+            $dialect eq 'Top' ? [ test => 'xxx' ] : (),                       # the extra re-order bind
+            [ 'me.name' => 'somebogusstring' ], [ test => 'xxx' ],            # outer prefetch
+            $dialect ne 'Top' ? ( [ $OFFSET => 7 ], [ $TOTAL => 9 ] ) : (), # parameterised RNO
+            [ 'me.name' => 'somebogusstring' ], [ test => 'xxx' ],            # inner prefetch
           ],
         );
 
@@ -416,6 +422,8 @@ SQL
           [
             # inner
             [ 'owner.name' => 'wiggle' ], [ 'owner.name' => 'woggle' ], [ source => 'Library' ], [ test => '1' ],
+            # rno(?)
+            $dialect ne 'Top' ? ( [ __offset => 5 ], [ __total => 6 ] ) : (),
             # outer
             [ 'owner.name' => 'wiggle' ], [ 'owner.name' => 'woggle' ], [ source => 'Library' ],
           ],
