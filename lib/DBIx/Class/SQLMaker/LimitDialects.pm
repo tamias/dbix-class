@@ -474,13 +474,12 @@ sub _RowCountOrGenericSubQ {
 
   return $self->_GenericSubQ(@_) if $offset;
 
-
-  push @{$self->{limit_bind}}, [ $ROWS => $rows ];
   return <<"EOF";
-SET ROWCOUNT ?
+SET ROWCOUNT $rows
 $sql
 SET ROWCOUNT 0
 EOF
+
 }
 
 =head2 GenericSubQ
