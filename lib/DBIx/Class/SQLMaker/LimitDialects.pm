@@ -429,33 +429,29 @@ sub _Top {
 
   my $quoted_rs_alias = $self->_quote ($rs_attrs->{alias});
 
-  unshift @{$self->{select_bind}}, [ $TOTAL => $rows + ($offset||0) ];
-  $sql = sprintf ('SELECT TOP ? %s %s %s %s',
+  $sql = sprintf ('SELECT TOP %u %s %s %s %s',
+    $rows + ($offset||0),
     $in_sel,
     $sql,
     $grpby_having,
     $order_by_inner,
   );
 
- if ($offset) {
-     unshift @{$self->{select_bind}}, [ $ROWS => $rows ];
-     $sql = sprintf ('SELECT TOP ? %s FROM ( %s ) %s %s',
-       $mid_sel,
-       $sql,
-       $quoted_rs_alias,
-       $order_by_reversed,
-     )
-  }
+  $sql = sprintf ('SELECT TOP %u %s FROM ( %s ) %s %s',
+    $rows,
+    $mid_sel,
+    $sql,
+    $quoted_rs_alias,
+    $order_by_reversed,
+  ) if $offset;
 
-  if ( ($offset && $order_by_requested) || ($mid_sel ne $out_sel) ) {
-     unshift @{$self->{select_bind}}, [ $ROWS => $rows ];
-     $sql = sprintf ('SELECT TOP ? %s FROM ( %s ) %s %s',
-       $out_sel,
-       $sql,
-       $quoted_rs_alias,
-       $order_by_requested,
-     )
-  }
+  $sql = sprintf ('SELECT TOP %u %s FROM ( %s ) %s %s',
+    $rows,
+    $out_sel,
+    $sql,
+    $quoted_rs_alias,
+    $order_by_requested,
+  ) if ( ($offset && $order_by_requested) || ($mid_sel ne $out_sel) );
 
   return $sql;
 }

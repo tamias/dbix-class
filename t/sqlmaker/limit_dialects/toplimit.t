@@ -5,13 +5,6 @@ use Test::More;
 use lib qw(t/lib);
 use DBICTest;
 use DBIC::SqlMakerTest;
-use DBIx::Class::SQLMaker::LimitDialects;
-
-my ($ROWS, $TOTAL, $OFFSET) = (
-   $DBIx::Class::SQLMaker::LimitDialects::ROWS,
-   $DBIx::Class::SQLMaker::LimitDialects::TOTAL,
-   $DBIx::Class::SQLMaker::LimitDialects::OFFSET,
-);
 
 my $schema = DBICTest->init_schema;
 
@@ -33,10 +26,10 @@ for my $null_order (
   my $rs = $books_45_and_owners->search ({}, {order_by => $null_order });
   is_same_sql_bind(
       $rs->as_query,
-      '(SELECT TOP ?
+      '(SELECT TOP 2
             id, source, owner, title, price, owner__id, owner__name
           FROM (
-            SELECT TOP ?
+            SELECT TOP 5
                 me.id, me.source, me.owner, me.title, me.price, owner.id AS owner__id, owner.name AS owner__name
               FROM books me
               JOIN owners owner ON owner.id = me.owner
@@ -45,7 +38,7 @@ for my $null_order (
           ) me
         ORDER BY me.id DESC
        )',
-    [ [ $ROWS => 2 ], [ $TOTAL => 5 ], [ source => 'Library' ] ],
+    [ [ source => 'Library' ] ],
   );
 }
 
@@ -131,13 +124,13 @@ for my $ord_set (
 
   is_same_sql_bind(
     $books_45_and_owners->search ({}, {order_by => $ord_set->{order_by}})->as_query,
-    "(SELECT TOP ?
+    "(SELECT TOP 2
           id, source, owner, title, price, owner__id, owner__name
         FROM (
-          SELECT TOP ?
+          SELECT TOP 2
               id, source, owner, title, price, owner__id, owner__name$o_sel
             FROM (
-              SELECT TOP ?
+              SELECT TOP 5
                   me.id, me.source, me.owner, me.title, me.price, owner.id AS owner__id, owner.name AS owner__name$i_sel
                 FROM books me
                 JOIN owners owner ON owner.id = me.owner
@@ -148,7 +141,7 @@ for my $ord_set (
         ) me
       ORDER BY $ord_set->{order_req}
     )",
-    [ [ $ROWS => 2 ], [ $ROWS => 2 ], [ $TOTAL => 5 ], [ source => 'Library' ] ],
+    [ [ source => 'Library' ] ],
   );
 }
 
@@ -157,12 +150,12 @@ is_same_sql_bind (
   $books_45_and_owners->search ({}, { group_by => 'title', order_by => 'title' })->as_query,
   '(SELECT me.id, me.source, me.owner, me.title, me.price, owner.id, owner.name
       FROM (
-        SELECT TOP ? id, source, owner, title, price
+        SELECT TOP 2 id, source, owner, title, price
           FROM (
-            SELECT TOP ?
+            SELECT TOP 2
                 id, source, owner, title, price
               FROM (
-                SELECT TOP ?
+                SELECT TOP 5
                     me.id, me.source, me.owner, me.title, me.price
                   FROM books me
                   JOIN owners owner ON owner.id = me.owner
@@ -178,7 +171,7 @@ is_same_sql_bind (
     WHERE ( source = ? )
     ORDER BY title
   )',
-  [ [ $ROWS => 2 ], [ $ROWS => 2 ], [ $TOTAL => 5 ], [ source => 'Library' ], [ source => 'Library' ] ],
+  [ [ source => 'Library' ], [ source => 'Library' ] ],
 );
 
 # test deprecated column mixing over join boundaries
@@ -186,19 +179,19 @@ my $rs_selectas_top = $schema->resultset ('BooksInLibrary')->search ({}, {
   '+select' => ['owner.name'],
   '+as' => ['owner_name'],
   join => 'owner',
-  rows => 1
+  rows => 1 
 });
 
 is_same_sql_bind( $rs_selectas_top->search({})->as_query,
                   '(SELECT
-                      TOP ? me.id, me.source, me.owner, me.title, me.price,
+                      TOP 1 me.id, me.source, me.owner, me.title, me.price,
                       owner.name AS owner_name
                     FROM books me
                     JOIN owners owner ON owner.id = me.owner
                     WHERE ( source = ? )
                     ORDER BY me.id
                    )',
-                   [ [ $TOTAL => 1 ], [ 'source', 'Library' ] ],
+                   [ [ 'source', 'Library' ] ],
                 );
 
 {
