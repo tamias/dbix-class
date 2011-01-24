@@ -7,6 +7,10 @@ use Test::More;
 use lib qw(t/lib);
 use DBIC::SqlMakerTest;
 
+use DBIx::Class::SQLMaker::LimitDialects;
+my $ROWS = $DBIx::Class::SQLMaker::LimitDialects::ROWS;
+my $TOTAL = $DBIx::Class::SQLMaker::LimitDialects::TOTAL;
+
 $ENV{NLS_SORT} = "BINARY";
 $ENV{NLS_COMP} = "BINARY";
 $ENV{NLS_LANG} = "AMERICAN";
@@ -310,9 +314,9 @@ do_creates($dbh);
             CONNECT BY parentid = PRIOR artistid
             ORDER BY name ASC
           ) me
-        WHERE ROWNUM <= 2
+        WHERE ROWNUM <= ?
       )',
-      [ [ name => 'root' ] ],
+      [ [ name => 'root' ], [ $ROWS => 2 ] ],
     );
 
     is_deeply (
@@ -333,10 +337,10 @@ do_creates($dbh);
                 START WITH name = ?
                 CONNECT BY parentid = PRIOR artistid
               ) me
-            WHERE ROWNUM <= 2
+            WHERE ROWNUM <= ?
           ) me
       )',
-      [ [ name => 'root' ] ],
+      [ [ name => 'root' ], [ $ROWS => 2 ] ],
     );
 
     is( $rs->count, 2, 'Connect By; LIMIT count ok' );
