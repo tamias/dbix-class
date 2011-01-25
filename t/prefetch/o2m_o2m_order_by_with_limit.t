@@ -9,8 +9,8 @@ use DBICTest;
 use DBIx::Class::SQLMaker::LimitDialects;
 
 my ($ROWS, $OFFSET) = (
-   $DBIx::Class::SQLMaker::LimitDialects::ROWS,
-   $DBIx::Class::SQLMaker::LimitDialects::OFFSET,
+   DBIx::Class::SQLMaker::LimitDialects->rows_alias,
+   DBIx::Class::SQLMaker::LimitDialects->offset_alias,
 );
 
 my $schema = DBICTest->init_schema();

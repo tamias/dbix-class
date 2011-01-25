@@ -10,7 +10,7 @@ use DBICTest;
 use DBIC::SqlMakerTest;
 use DBIx::Class::SQLMaker::LimitDialects;
 
-my $ROWS = $DBIx::Class::SQLMaker::LimitDialects::ROWS;
+my $ROWS = DBIx::Class::SQLMaker::LimitDialects->rows_alias;
 
 my $schema = DBICTest->init_schema();
 

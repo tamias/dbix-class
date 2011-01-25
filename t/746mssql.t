@@ -9,8 +9,8 @@ use DBIC::SqlMakerTest;
 use Try::Tiny;
 
 use DBIx::Class::SQLMaker::LimitDialects;
-my $OFFSET = $DBIx::Class::SQLMaker::LimitDialects::OFFSET;
-my $TOTAL = $DBIx::Class::SQLMaker::LimitDialects::TOTAL;
+my $OFFSET = DBIx::Class::SQLMaker::LimitDialects->offset_alias;
+my $TOTAL  = DBIx::Class::SQLMaker::LimitDialects->total_alias;
 
 my ($dsn, $user, $pass) = @ENV{map { "DBICTEST_MSSQL_ODBC_${_}" } qw/DSN USER PASS/};
 

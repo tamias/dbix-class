@@ -8,8 +8,8 @@ use lib qw(t/lib);
 use DBIC::SqlMakerTest;
 
 use DBIx::Class::SQLMaker::LimitDialects;
-my $ROWS = $DBIx::Class::SQLMaker::LimitDialects::ROWS;
-my $TOTAL = $DBIx::Class::SQLMaker::LimitDialects::TOTAL;
+my $ROWS = DBIx::Class::SQLMaker::LimitDialects->rows_alias,
+my $TOTAL = DBIx::Class::SQLMaker::LimitDialects->total_alias,
 
 $ENV{NLS_SORT} = "BINARY";
 $ENV{NLS_COMP} = "BINARY";
@@ -118,7 +118,7 @@ do_creates($dbh);
         SELECT me.artistid, me.name, me.rank, me.charfield, me.parentid
           FROM artist me
         START WITH name = ?
-        CONNECT BY parentid = PRIOR artistid 
+        CONNECT BY parentid = PRIOR artistid
       )',
       [ [ name => 'root'] ],
     );
@@ -134,7 +134,7 @@ do_creates($dbh);
         SELECT COUNT( * )
           FROM artist me
         START WITH name = ?
-        CONNECT BY parentid = PRIOR artistid 
+        CONNECT BY parentid = PRIOR artistid
       )',
       [ [ name => 'root'] ],
     );
@@ -160,7 +160,7 @@ do_creates($dbh);
         SELECT me.artistid, me.name, me.rank, me.charfield, me.parentid
           FROM artist me
         START WITH name = ?
-        CONNECT BY parentid = PRIOR artistid 
+        CONNECT BY parentid = PRIOR artistid
         ORDER SIBLINGS BY name DESC
       )',
       [ [ name => 'root'] ],
@@ -187,7 +187,7 @@ do_creates($dbh);
           FROM artist me
         WHERE ( parentid IS NULL )
         START WITH name = ?
-        CONNECT BY parentid = PRIOR artistid 
+        CONNECT BY parentid = PRIOR artistid
       )',
       [ [ name => 'root'] ],
     );
@@ -222,7 +222,7 @@ do_creates($dbh);
           LEFT JOIN cd cds ON cds.artist = me.artistid
         WHERE ( cds.title LIKE ? )
         START WITH me.name = ?
-        CONNECT BY parentid = PRIOR artistid 
+        CONNECT BY parentid = PRIOR artistid
       )',
       [ [ 'cds.title' => '%cd' ], [ 'me.name' => 'root' ] ],
     );
@@ -241,7 +241,7 @@ do_creates($dbh);
           LEFT JOIN cd cds ON cds.artist = me.artistid
         WHERE ( cds.title LIKE ? )
         START WITH me.name = ?
-        CONNECT BY parentid = PRIOR artistid 
+        CONNECT BY parentid = PRIOR artistid
       )',
       [ [ 'cds.title' => '%cd' ], [ 'me.name' => 'root' ] ],
     );
@@ -263,7 +263,7 @@ do_creates($dbh);
         SELECT me.artistid, me.name, me.rank, me.charfield, me.parentid
           FROM artist me
         START WITH name = ?
-        CONNECT BY parentid = PRIOR artistid 
+        CONNECT BY parentid = PRIOR artistid
         ORDER BY LEVEL ASC, name ASC
       )',
       [ [ name => 'root' ] ],
@@ -413,7 +413,7 @@ do_creates($dbh);
         SELECT me.artistid, me.name, me.rank, me.charfield, me.parentid, CONNECT_BY_ISCYCLE
           FROM artist me
         START WITH name = ?
-        CONNECT BY NOCYCLE parentid = PRIOR artistid 
+        CONNECT BY NOCYCLE parentid = PRIOR artistid
       )',
       [ [ name => 'cycle-root'] ],
     );
@@ -434,7 +434,7 @@ do_creates($dbh);
         SELECT COUNT( * )
           FROM artist me
         START WITH name = ?
-        CONNECT BY NOCYCLE parentid = PRIOR artistid 
+        CONNECT BY NOCYCLE parentid = PRIOR artistid
       )',
       [ [ name => 'cycle-root'] ],
     );

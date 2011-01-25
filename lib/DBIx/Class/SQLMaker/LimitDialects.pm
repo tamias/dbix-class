@@ -3,11 +3,15 @@ package DBIx::Class::SQLMaker::LimitDialects;
 use warnings;
 use strict;
 
+use base 'Class::Accessor::Grouped';
 use Carp::Clan qw/^DBIx::Class|^SQL::Abstract|^Try::Tiny/;
 use List::Util 'first';
 use namespace::clean;
 
-our ($ROWS, $OFFSET, $TOTAL) = (qw(__rows __offset __total));
+__PACKAGE__->mk_group_accessors( inherited => qw(rows_alias offset_alias total_alias) );
+__PACKAGE__->rows_alias('__rows');
+__PACKAGE__->offset_alias('__offset');
+__PACKAGE__->total_alias('__total');
 
 # FIXME
 # This dialect has not been ported to the subquery-realiasing code
@@ -117,10 +121,10 @@ Supported by B<PostgreSQL> and B<SQLite>
 sub _LimitOffset {
     my ( $self, $sql, $rs_attrs, $rows, $offset ) = @_;
     $sql .= $self->_parse_rs_attrs( $rs_attrs ) . " LIMIT ?";
-    push @{$self->{limit_bind}}, [ $ROWS => $rows ];
+    push @{$self->{limit_bind}}, [ $self->rows_alias => $rows ];
     if ($offset) {
       $sql .= " OFFSET ?";
-      push @{$self->{limit_bind}}, [ $OFFSET => $offset ];
+      push @{$self->{limit_bind}}, [ $self->offset_alias => $offset ];
     }
     return $sql;
 }
@@ -137,10 +141,10 @@ sub _LimitXY {
     $sql .= $self->_parse_rs_attrs( $rs_attrs ) . " LIMIT ";
     if ($offset) {
       $sql .= '?, ';
-      push @{$self->{limit_bind}}, [ $OFFSET => $offset ];
+      push @{$self->{limit_bind}}, [ $self->offset_alias => $offset ];
     }
     $sql .= '?';
-    push @{$self->{limit_bind}}, [ $ROWS => $rows ];
+    push @{$self->{limit_bind}}, [ $self->rows_alias => $rows ];
 
     return $sql;
 }
@@ -212,7 +216,7 @@ SELECT $out_sel FROM (
 ) $qalias WHERE $idx_name >= ? AND $idx_name <= ?
 
 EOS
-   push @{$self->{limit_bind}}, [ $OFFSET => $offset + 1], [ $TOTAL => $offset + $rows ];
+   push @{$self->{limit_bind}}, [ $self->offset_alias => $offset + 1], [ $self->total_alias => $offset + $rows ];
 
   return $sql;
 }
@@ -239,13 +243,13 @@ sub _SkipFirst {
   return sprintf ('SELECT %s%s%s%s',
     $offset
       ? do {
-         push @{$self->{limit_bind}}, [ $OFFSET => $offset];
+         push @{$self->{limit_bind}}, [ $self->offset_alias => $offset];
          'SKIP ? '
       }
       : ''
     ,
     do {
-       push @{$self->{limit_bind}}, [ $ROWS => $rows ];
+       push @{$self->{limit_bind}}, [ $self->rows_alias => $rows ];
        'FIRST ? '
     },
     $sql,
@@ -269,12 +273,12 @@ sub _FirstSkip {
 
   return sprintf ('SELECT %s%s%s%s',
     do {
-       push @{$self->{limit_bind}}, [ $ROWS => $rows ];
+       push @{$self->{limit_bind}}, [ $self->rows_alias => $rows ];
        'FIRST ? '
     },
     $offset
       ? do {
-         push @{$self->{limit_bind}}, [ $OFFSET => $offset];
+         push @{$self->{limit_bind}}, [ $self->offset_alias => $offset];
          'SKIP ? '
       }
       : ''
@@ -310,7 +314,7 @@ sub _RowNum {
 
   if ($offset) {
 
-    push @{$self->{limit_bind}}, [ $TOTAL => $offset + $rows ], [ $OFFSET => $offset + 1 ];
+    push @{$self->{limit_bind}}, [ $self->total_alias => $offset + $rows ], [ $self->offset_alias => $offset + 1 ];
     $sql =<<"EOS";
 SELECT $outsel FROM (
   SELECT $outsel, ROWNUM $idx_name FROM (
@@ -320,7 +324,7 @@ SELECT $outsel FROM (
 EOS
   }
   else {
-    push @{$self->{limit_bind}}, [ $ROWS => $rows ];
+    push @{$self->{limit_bind}}, [ $self->rows_alias => $rows ];
     $sql =<<"EOS";
   SELECT $outsel FROM (
     SELECT $insel ${sql}${order_group_having}
@@ -596,11 +600,11 @@ EOS
     $offset
       ? do {
          push @{$self->{limit_bind}},
-            [ $OFFSET => $offset ], [ $TOTAL => $offset + $rows - 1];
+            [ $self->offset_alias => $offset ], [ $self->total_alias => $offset + $rows - 1];
          'BETWEEN ? AND ?';
         }
       : do {
-         push @{$self->{limit_bind}}, [ $ROWS => $rows ];
+         push @{$self->{limit_bind}}, [ $self->rows_alias => $rows ];
          '< ?';
          }
     ,
